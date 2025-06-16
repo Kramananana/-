@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}患者: {{ patient.name }}{% endblock %}
+
+{% block content %}
+<div x-data="{ activeTab: 'record', showUploadModal: false, showXrayModal: false, selectedXray: {} }" @keydown.escape.window="showUploadModal = false; showXrayModal = false;">
+    <!-- 顶栏信息与操作 -->
+    <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">{{ patient.name }}</h1>
+            <p class="text-sm text-gray-500">ID: {{ patient.id }} | {{ patient.gender }} | 生日: {{ patient.dob or '未知' }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ url_for('dental_chart', patient_id=patient.id) }}" class="bg-teal-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-600 transition">
+                <i class="fas fa-tooth mr-2"></i>牙位图
+            </a>
+            <a href="{{ url_for('export_patient_csv', patient_id=patient.id) }}" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition">
+                <i class="fas fa-file-csv mr-2"></i>导出病历
+            </a>
+        </div>
+    </div>
+
+    <!-- Tab导航 -->
+    <div class="border-b border-gray-200">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <a href="#" @click.prevent="activeTab = 'record'" :class="{'border-indigo-500 text-indigo-600': activeTab === 'record'}" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">电子病历</a>
+            <a href="#" @click.prevent="activeTab = 'xrays'" :class="{'border-indigo-500 text-indigo-600': activeTab === 'xrays'}" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">X光片</a>
+            <a href="#" @click.prevent="activeTab = 'prescriptions'" :class="{'border-indigo-500 text-indigo-600': activeTab === 'prescriptions'}" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">电子处方</a>
+        </nav>
+    </div>
+
+    <!-- 1. 病历详情与编辑 -->
+    <div x-show="activeTab === 'record'" x-cloak class="mt-6 bg-white p-6 rounded-lg shadow-md">
+        <form action="{{ url_for('patient_detail', patient_id=patient.id) }}" method="POST" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><label class="block text-sm font-medium text-gray-700">主诉</label><textarea name="chief_complaint" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">{{ patient.chief_complaint or '' }}</textarea></div>
+                <div><label class="block text-sm font-medium text-gray-700">现病史</label><textarea name="present_illness" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">{{ patient.present_illness or '' }}</textarea></div>
+                <div><label class="block text-sm font-medium text-gray-700">既往史</label><textarea name="past_history" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">{{ patient.past_history or '' }}</textarea></div>
+                <div><label class="block text-sm font-medium text-gray-700">检查</label><textarea name="examination_info" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">{{ patient.examination_info or '' }}</textarea></div>
+                <div><label class="block text-sm font-medium text-gray-700">鉴别诊断</label><textarea name="differential_diagnosis" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">{{ patient.differential_diagnosis or '' }}</textarea></div>
+                <div><label class="block text-sm font-medium text-gray-700">治疗计划</label><textarea name="treatment_plan" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">{{ patient.treatment_plan or '' }}</textarea></div>
+            </div>
+            <div class="text-right">
+                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">保存修改</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- X光片管理 -->
+    <div x-show="activeTab === 'xrays'" x-cloak class="mt-6">
+        <button @click="showUploadModal = true" class="mb-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700"><i class="fas fa-upload mr-2"></i>上传新X光片</button>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for xray in xrays %}
+            <div class="bg-white p-4 rounded-lg shadow-md flex flex-col">
+                <p class="text-sm font-semibold text-gray-700">上传于: {{ xray.upload_date }}</p>
+                <div class="mt-2 grid grid-cols-2 gap-2 flex-grow">
+                    <img @click="selectedXray = {src: '{{ url_for('serve_uploaded_file', filename=xray.filename) }}', title: '原图'}; showXrayModal = true;" src="{{ url_for('serve_uploaded_file', filename=xray.filename) }}" class="rounded-md cursor-pointer hover:opacity-75 w-full h-full object-cover" alt="X光原图">
+                    
+                    <!-- 【修复】在模板中根据 xray.filename 动态生成标注图的URL -->
+                    {% set overlay_filename = 'overlay_' + xray.filename.rsplit('.', 1)[0] + '.png' %}
+                    <img @click="selectedXray = {src: '{{ url_for('serve_uploaded_file', filename=overlay_filename) }}', title: 'AI标注图'}; showXrayModal = true;" src="{{ url_for('serve_uploaded_file', filename=overlay_filename) }}" class="rounded-md cursor-pointer hover:opacity-75 w-full h-full object-cover" alt="AI标注图">
+                </div>
+                <div class="text-right mt-2">
+                    <form action="{{ url_for('delete_xray', xray_id=xray.id) }}" method="POST" onsubmit="return confirm('确定删除这张X光片吗？');">
+                        <button type="submit" class="text-red-500 hover:text-red-700 text-sm font-medium">删除</button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-gray-500 col-span-full">该患者暂无X光片记录。</p>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- 3. 电子处方管理 -->
+    <div x-show="activeTab === 'prescriptions'" x-cloak class="mt-6">
+        <a href="{{ url_for('new_prescription', patient_id=patient.id) }}" class="mb-4 inline-block bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700"><i class="fas fa-file-prescription mr-2"></i>开具新处方</a>
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">开具日期</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">药品</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <!-- 【修复】直接遍历从后端传来的已排序列表 prescriptions -->
+                        {% for prescription in prescriptions %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ prescription.date_issued.strftime('%Y-%m-%d') }}</td>
+                            <td class="px-6 py-4">
+                                <ul class="list-disc list-inside">
+                                    {% for med in prescription.medications %}<li class="text-sm">{{ med.name }} ({{ med.dosage }})</li>{% endfor %}
+                                </ul>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-4">
+                                <a href="{{ url_for('edit_prescription', prescription_id=prescription.id) }}" class="text-indigo-600 hover:text-indigo-900">编辑</a>
+                                <a href="{{ url_for('print_prescription', prescription_id=prescription.id) }}" target="_blank" class="text-green-600 hover:text-green-900">打印</a>
+                                <form action="{{ url_for('delete_prescription', prescription_id=prescription.id) }}" method="POST" class="inline" onsubmit="return confirm('确认删除此张处方？')"><button type="submit" class="text-red-600 hover:text-red-900">删除</button></form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center py-10 text-gray-500">无历史处方记录。</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- X光上传弹窗 -->
+    <div x-show="showUploadModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" x-cloak>
+        <div @click.away="showUploadModal = false" class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-lg font-bold text-gray-800">上传X光片</h3>
+            <form action="{{ url_for('upload_xray', patient_id=patient.id) }}" method="POST" enctype="multipart/form-data" class="mt-4 space-y-4">
+                <input type="file" name="xray_file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" required>
+                <div class="flex justify-end gap-2"><button type="button" @click="showUploadModal=false" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">取消</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">上传并识别</button></div>
+            </form>
+        </div>
+    </div>
+    <!-- X光大图查看弹窗 -->
+    <div x-show="showXrayModal" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" x-cloak>
+        <div @click.away="showXrayModal = false" class="relative">
+            <h3 class="text-white text-lg font-bold mb-2" x-text="selectedXray.title"></h3>
+            <img :src="selectedXray.src" class="max-w-[90vw] max-h-[85vh] rounded-lg">
+            <button @click="showXrayModal=false" class="absolute -top-3 -right-3 bg-white rounded-full h-8 w-8 text-black text-2xl flex items-center justify-center leading-none">&times;</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

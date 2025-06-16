@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}电子牙位图 - {{ patient.name }}{% endblock %}
+{% block header_title %}电子牙位图{% endblock %}
+
+{% block content %}
+<div x-data="dentalChart({{ dental_chart_data | tojson }})" class="bg-white p-6 rounded-lg shadow">
+    <div class="flex justify-between items-center mb-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">电子牙位图: {{ patient.name }}</h1>
+            <a href="{{ url_for('patient_detail', patient_id=patient.id) }}" class="text-sm text-blue-600 hover:underline">&larr; 返回患者详情</a>
+        </div>
+        <button @click="saveChart({{ patient.id }})" 
+                :disabled="isSaving"
+                class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition duration-300 disabled:bg-gray-400">
+            <span x-show="!isSaving">保存牙位图</span>
+            <span x-show="isSaving">保存中...</span>
+        </button>
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-8 mt-6">
+        <!-- 牙位图 SVG -->
+        <div class="flex-grow">
+            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+                <style>
+                    .tooth-surface { stroke: #666; stroke-width: 0.5; cursor: pointer; }
+                    .tooth-surface:hover { stroke: #000; stroke-width: 1; }
+                    .tooth-label { font-family: sans-serif; font-size: 10px; text-anchor: middle; pointer-events: none; }
+                    .missing-cross { stroke: #4a5568; stroke-width: 2; pointer-events: none;}
+                </style>
+                {% set teeth_map = {
+                    'upper_right': [18, 17, 16, 15, 14, 13, 12, 11],
+                    'upper_left': [21, 22, 23, 24, 25, 26, 27, 28],
+                    'lower_left': [31, 32, 33, 34, 35, 36, 37, 38],
+                    'lower_right': [48, 47, 46, 45, 44, 43, 42, 41]
+                } %}
+                
+                {% for quadrant, teeth in teeth_map.items() %}
+                    {% for tooth in teeth %}
+                        {% set i = loop.index0 %}
+                        {% set x_offset = 400 if 'left' in quadrant else (380 - i * 45) if 'right' in quadrant else 0 %}
+                        {% set y_offset = 50 if 'upper' in quadrant else 250 %}
+                        {% set x = x_offset + (i * 45) if 'left' in quadrant else x_offset %}
+                        
+                        <g :data-tooth-id="tooth" transform="translate({{ x }}, {{ y_offset }})">
+                            <title>牙齿 #{{ tooth }}</title>
+                            <rect @click="selectSurface('{{ tooth }}', 'occlusal')" :class="getSurfaceClass('{{ tooth }}', 'occlusal')" class="tooth-surface" x="10" y="10" width="20" height="20" />
+                            <path @click="selectSurface('{{ tooth }}', 'mesial')" :class="getSurfaceClass('{{ tooth }}', 'mesial')" class="tooth-surface" d="M 10 10 L 0 0 L 0 40 L 10 30 Z" />
+                            <path @click="selectSurface('{{ tooth }}', 'distal')" :class="getSurfaceClass('{{ tooth }}', 'distal')" class="tooth-surface" d="M 30 10 L 40 0 L 40 40 L 30 30 Z" />
+                            <path @click="selectSurface('{{ tooth }}', 'buccal')" :class="getSurfaceClass('{{ tooth }}', 'buccal')" class="tooth-surface" d="M 10 10 L 0 0 L 40 0 L 30 10 Z" />
+                            <path @click="selectSurface('{{ tooth }}', 'lingual')" :class="getSurfaceClass('{{ tooth }}', 'lingual')" class="tooth-surface" d="M 10 30 L 0 40 L 40 40 L 30 30 Z" />
+                            <text class="tooth-label" x="20" y="55">{{ tooth }}</text>
+                             <rect @click="selectSurface('{{ tooth }}', 'all')" fill="transparent" x="0" y="0" width="40" height="50" class="cursor-pointer"/>
+                            <g x-show="isToothMissing('{{ tooth }}')" x-cloak>
+                                <line class="missing-cross" x1="0" y1="0" x2="40" y2="40"/>
+                                <line class="missing-cross" x1="40" y1="0" x2="0" y2="40"/>
+                            </g>
+                        </g>
+                    {% endfor %}
+                {% endfor %}
+            </svg>
+        </div>
+        <!-- 工具栏 -->
+        <div class="w-full md:w-64 flex-shrink-0">
+            <div class="space-y-4 p-4 border rounded-lg bg-gray-50">
+                <h3 class="font-bold text-lg text-gray-800">标记工具</h3>
+                <div class="space-y-2">
+                    <p class="text-sm font-semibold">当前选择: <span x-text="currentCondition" class="font-mono p-1 rounded bg-gray-200"></span></p>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button @click="currentCondition = 'healthy'" :class="{'ring-2 ring-blue-500': currentCondition === 'healthy'}" class="p-2 rounded-md bg-white border text-sm">健康</button>
+                    <button @click="currentCondition = 'caries'" :class="{'ring-2 ring-blue-500': currentCondition === 'caries'}" class="p-2 rounded-md bg-red-500 text-white text-sm">龋齿</button>
+                    <button @click="currentCondition = 'filling'" :class="{'ring-2 ring-blue-500': currentCondition === 'filling'}" class="p-2 rounded-md bg-blue-500 text-white text-sm">填充物</button>
+                    <button @click="currentCondition = 'crown'" :class="{'ring-2 ring-blue-500': currentCondition === 'crown'}" class="p-2 rounded-md bg-yellow-400 text-black text-sm">牙冠</button>
+                    <button @click="currentCondition = 'missing'" :class="{'ring-2 ring-blue-500': currentCondition === 'missing'}" class="p-2 rounded-md bg-gray-500 text-white text-sm">缺失牙</button>
+                </div>
+                <div class="mt-4 pt-4 border-t">
+                    <h4 class="font-semibold text-gray-700">使用说明:</h4>
+                    <ul class="list-disc list-inside text-xs text-gray-600 space-y-1 mt-2">
+                        <li>选择一个状态 (如“龋齿”)。</li>
+                        <li>点击牙齿的对应牙面进行标记。</li>
+                        <li>再次点击可取消标记。</li>
+                        <li>选择“缺失牙”后，点击牙齿的任意位置可将其标记为缺失。</li>
+                        <li>选择“健康”后，点击缺失牙可将其恢复。</li>
+                        <li>完成后请点击“保存牙位图”。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('dentalChart', (initialData) => ({
+        chart: initialData || {},
+        selection: { tooth: null, surface: null },
+        currentCondition: 'healthy',
+        isSaving: false,
+        conditionColors: {
+            healthy: 'fill-white',
+            caries: 'fill-red-500',
+            filling: 'fill-blue-500',
+            crown: 'fill-yellow-400',
+            missing: 'fill-gray-500'
+        },
+
+        init() {
+            const teethIds = Array.from(document.querySelectorAll('g[data-tooth-id]')).map(el => el.dataset.toothId);
+            teethIds.forEach(id => {
+                if (!this.chart[id]) {
+                    this.chart[id] = { status: 'present', surfaces: {} };
+                }
+            });
+        },
+
+        getSurfaceClass(toothId, surface) {
+            const condition = this.chart[toothId]?.surfaces?.[surface] || 'healthy';
+            return this.conditionColors[condition] || 'fill-white';
+        },
+
+        isToothMissing(toothId) {
+            return this.chart[toothId]?.status === 'missing';
+        },
+
+        selectSurface(toothId, surface) {
+            if (this.isToothMissing(toothId) && this.currentCondition !== 'healthy') return;
+            
+            if (surface === 'all') {
+                if (this.currentCondition === 'missing') {
+                    this.chart[toothId].status = 'missing';
+                    this.chart[toothId].surfaces = {}; 
+                } else if (this.currentCondition === 'healthy') {
+                    this.chart[toothId].status = 'present';
+                }
+                return;
+            }
+            
+            if (this.isToothMissing(toothId)) return;
+
+            const current = this.chart[toothId].surfaces[surface];
+            if (current === this.currentCondition) {
+                delete this.chart[toothId].surfaces[surface];
+            } else {
+                this.chart[toothId].surfaces[surface] = this.currentCondition;
+            }
+        },
+        
+        async saveChart(patientId) {
+            this.isSaving = true;
+            try {
+                const response = await fetch(`/doctor/patient/${patientId}/dental_chart/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.chart)
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('牙位图保存成功！');
+                } else {
+                    alert('保存失败: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error saving chart:', error);
+                alert('保存时发生错误。');
+            } finally {
+                this.isSaving = false;
+            }
+        }
+    }));
+});
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% set is_edit = prescription is not none %}
+{% block title %}{{ '编辑' if is_edit else '开具' }}处方{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <div class="flex justify-between items-center border-b pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">{{ '编辑处方' if is_edit else '为 ' + patient.name + ' 开具新处方' }}</h1>
+            <a href="{{ url_for('patient_detail', patient_id=patient.id) }}" class="text-sm text-blue-600 hover:underline">&larr; 返回患者详情</a>
+        </div>
+
+        <form action="{% if is_edit %}{{ url_for('edit_prescription', prescription_id=prescription.id) }}{% else %}{{ url_for('new_prescription', patient_id=patient.id) }}{% endif %}" method="POST">
+            
+            <div>
+                <label for="medications-text" class="block text-sm font-medium text-gray-700">药品列表</label>
+                <div class="mt-1 p-2 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 text-xs rounded-r-lg">
+                    <p><b>填写说明:</b></p>
+                    <ul class="list-disc list-inside ml-2">
+                        <li>每行填写一种药品。</li>
+                        <li>格式为：<b>药品名称, 单次剂量, 用法频率, 备注</b> (用英文逗号隔开)。</li>
+                        <li>剂量、频率、备注为选填项。</li>
+                        <li><b>示例:</b> 阿莫西林胶囊, 0.5g, 每日三次, 饭后服用</li>
+                    </ul>
+                </div>
+                
+                <!-- 【修复】使用 TextArea 替代动态表单 -->
+                <textarea id="medications-text" 
+                          name="medications_text" 
+                          rows="10" 
+                          class="mt-2 block w-full border-gray-300 rounded-md shadow-sm p-2 font-mono" 
+                          placeholder="布洛芬, 1片, 需要时服用&#10;甲硝唑, 2片, 每日两次"
+                          required>{% if is_edit %}{{ helpers.format_medications_for_textarea(prescription.medications) }}{% endif %}</textarea>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="mt-6 flex justify-end">
+                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-check mr-2"></i>{{ '保存更新' if is_edit else '确认开具' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 【修复】优化了JS逻辑，使其更健壮 -->
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('prescriptionForm', (initialMeds) => ({
+        medications: [],
+        init() {
+            const safeInitialMeds = Array.isArray(initialMeds) ? initialMeds : [];
+            if (safeInitialMeds.length > 0) {
+                this.medications = safeInitialMeds;
+            } else {
+                // 如果是新建处方，则自动添加一个空的药品行
+                this.addMed();
+            }
+        },
+        addMed() {
+            this.medications.push({ name: '', dosage: '', frequency: '', notes: '' });
+        },
+        removeMed(index) {
+            // 确保至少保留一行药品
+            if (this.medications.length > 1) {
+                this.medications.splice(index, 1);
+            }
+        }
+    }));
+});
+</script>
+{% endblock %}

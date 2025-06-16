@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}AI智能医生{% endblock %}
+{% block header_title %}AI智能医生{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-[85vh] bg-white rounded-lg shadow-xl">
+    <!-- Header -->
+    <div class="p-4 border-b">
+        <h1 class="text-xl font-semibold">AI 智能医生</h1>
+        <p class="text-xs text-yellow-600 mt-1">注意: AI回答仅供参考，不能替代专业医生诊断。</p>
+    </div>
+
+    <!-- Chat Messages -->
+    <div id="chat-window" class="flex-1 p-6 overflow-y-auto space-y-4">
+        <!-- 渲染历史记录 -->
+        {% for message in history %}
+            {% if message.role == 'user' %}
+            <div class="flex items-start gap-3 justify-end">
+                <div class="bg-blue-500 text-white p-3 rounded-lg max-w-lg">
+                    <p class="text-sm">{{ message.content|safe }}</p>
+                </div>
+            </div>
+            {% elif message.role == 'assistant' %}
+            <div class="flex items-start gap-3">
+                <div class="p-2 bg-gray-700 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">A</div>
+                <div class="bg-gray-200 p-3 rounded-lg max-w-lg">
+                    <p class="text-sm">{{ message.content|replace('\n', '<br>')|safe }}</p>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Input Form -->
+    <div class="p-4 border-t bg-gray-50">
+        <form id="chat-form" class="flex items-center gap-4">
+            <input type="text" id="chat-input" placeholder="在这里输入您的问题..." autocomplete="off"
+                   class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button type="submit" id="send-button"
+                    class="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- 将后端数据传递给 JavaScript -->
+<script id="chat-data" type="application/json">
+    {
+        "history": {{ history|tojson }},
+        "system_context": {{ system_context|tojson }}
+    }
+</script>
+
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}

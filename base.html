@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI牙科影像诊断系统{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="flex flex-col md:flex-row min-h-screen">
+        {% if session.user %}
+        <aside class="bg-gray-800 text-gray-100 w-full md:w-64 py-7 px-2 fixed inset-y-0 left-0 transform md:relative md:translate-x-0 transition duration-200 ease-in-out md:flex md:flex-col md:justify-between z-30" 
+              x-data="{ open: false }" :class="{'translate-x-0': open, '-translate-x-full': !open}">
+            
+            <div class="flex-grow">
+                <a href="{{ url_for('index') }}" class="text-white text-2xl font-semibold uppercase hover:text-gray-300 px-4">AI牙科助手</a>
+                
+                <nav class="mt-10">
+                    {% if session.user.role == 'admin' %}
+                    <a href="{{ url_for('admin_dashboard') }}" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 hover:text-white">管理员面板</a>
+                    
+                    {% elif session.user.role == 'doctor' %}
+                    <a href="{{ url_for('doctor_dashboard') }}" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 hover:text-white">患者管理</a>
+                    <a href="{{ url_for('doctor_appointments') }}" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 hover:text-white">预约管理</a>
+                    <a href="{{ url_for('ai_test_page') }}" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 hover:text-white">AI识别测试</a>
+                    <a href="{{ url_for('chat') }}" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 hover:text-white">AI智能医生</a>
+
+                    {% elif session.user.role == 'patient' %}
+                    <a href="{{ url_for('patient_dashboard') }}" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 hover:text-white">我的病历</a>
+                    <a href="{{ url_for('patient_appointments') }}" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 hover:text-white">我的预约</a>
+                    <a href="{{ url_for('ai_test_page') }}" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 hover:text-white">AI识别测试</a>
+                    <a href="{{ url_for('chat') }}" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 hover:text-white">AI智能医生</a>
+                    {% endif %}
+                </nav>
+            </div>
+
+            <div class="flex-shrink-0 px-4 py-2">
+                <div class="mb-4">
+                    <p class="text-sm">登录为: <strong>{{ session.user.username }}</strong></p>
+                    <p class="text-xs text-gray-400">角色: {{ session.user.role }}</p>
+                </div>
+                <a href="{{ url_for('logout') }}" class="block w-full text-center bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+                    登出
+                </a>
+            </div>
+        </aside>
+        {% endif %}
+
+        <main class="flex-1 {% if session.user %}p-4 md:p-10 md:ml-64{% else %}w-full{% endif %}">
+            {% if session.user %}
+            <div class="md:hidden flex justify-between items-center mb-4">
+                <h1 class="text-2xl font-bold">{% block header_title %}{% endblock %}</h1>
+                <button @click="open = !open" class="text-gray-500 hover:text-gray-600 focus:outline-none focus:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+            </div>
+            {% endif %}
+            {% include '_flash_messages.html' %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

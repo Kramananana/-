@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}预约详情{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow max-w-2xl mx-auto">
+    <div class="flex justify-between items-center mb-4 pb-4 border-b">
+        <h2 class="text-2xl font-semibold text-gray-700">预约详情</h2>
+        <a href="{{ url_for('doctor_appointments') }}" class="text-blue-600 hover:underline">&larr; 返回日历</a>
+    </div>
+
+    <div class="space-y-4 text-gray-800">
+        <div class="flex">
+            <strong class="w-24 flex-shrink-0">患者:</strong>
+            <span>{{ appointment.patient.name }}</span>
+        </div>
+        <div class="flex">
+            <strong class="w-24 flex-shrink-0">时间:</strong>
+            <span>{{ appointment.appointment_time.strftime('%Y年%m月%d日 %H:%M') }}</span>
+        </div>
+        <div class="flex">
+            <strong class="w-24 flex-shrink-0">事由:</strong>
+            <p>{{ appointment.reason or '未填写' }}</p>
+        </div>
+        <div class="flex items-center">
+            <strong class="w-24 flex-shrink-0">状态:</strong>
+            <span class="px-2 py-1 text-xs leading-5 font-semibold rounded-full 
+                {% if appointment.status == '已确认' %} bg-green-100 text-green-800 
+                {% elif appointment.status == '已取消' %} bg-red-100 text-red-800
+                {% elif appointment.status == '已完成' %} bg-gray-100 text-gray-800
+                {% else %} bg-yellow-100 text-yellow-800 {% endif %}">
+                {{ appointment.status }}
+            </span>
+        </div>
+    </div>
+
+    <div class="mt-8 pt-6 border-t flex justify-end space-x-4">
+        {% if appointment.status == '待确认' %}
+        <!-- 【修复】将 'update_appointment' 改为 'update_appointment_status' -->
+        <form action="{{ url_for('update_appointment_status') }}" method="POST" class="inline-block">
+            <input type="hidden" name="appointment_id" value="{{ appointment.id }}">
+            <input type="hidden" name="status" value="已确认">
+            <button type="submit" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">确认预约</button>
+        </form>
+        <form action="{{ url_for('update_appointment_status') }}" method="POST" class="inline-block">
+            <input type="hidden" name="appointment_id" value="{{ appointment.id }}">
+            <input type="hidden" name="status" value="已取消">
+            <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">取消预约</button>
+        </form>
+        {% elif appointment.status == '已确认' %}
+        <form action="{{ url_for('update_appointment_status') }}" method="POST" class="inline-block">
+            <input type="hidden" name="appointment_id" value="{{ appointment.id }}">
+            <input type="hidden" name="status" value="已完成">
+            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">标记为完成</button>
+        </form>
+         <form action="{{ url_for('update_appointment_status') }}" method="POST" class="inline-block">
+            <input type="hidden" name="appointment_id" value="{{ appointment.id }}">
+            <input type="hidden" name="status" value="已取消">
+            <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">取消预约</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

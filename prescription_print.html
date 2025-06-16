@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>打印处方 - {{ prescription.patient.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            body { -webkit-print-color-adjust: exact; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center p-8">
+    <div class="w-full max-w-4xl bg-white p-12 shadow-lg" id="prescription">
+        <header class="text-center border-b-2 border-black pb-4">
+            <h1 class="text-3xl font-bold">牙科电子处方</h1>
+            <p class="text-lg">Dental E-Prescription</p>
+        </header>
+        <div class="grid grid-cols-2 gap-x-8 gap-y-4 text-lg mt-8 border-b pb-4">
+            <p><strong>患者姓名:</strong> {{ prescription.patient.name }}</p>
+            <p><strong>性别:</strong> {{ prescription.patient.gender }}</p>
+            <p><strong>开具日期:</strong> {{ prescription.date_issued.strftime('%Y-%m-%d') }}</p>
+            <p><strong>处方ID:</strong> RP{{ prescription.id }}</p>
+        </div>
+        <div class="mt-8">
+            <h2 class="text-2xl font-bold mb-4">Rp.</h2>
+            <div class="space-y-6 text-lg">
+                {% for med in prescription.medications %}
+                <div>
+                    <p class="font-semibold text-xl">{{ loop.index }}. {{ med.name }}</p>
+                    <div class="pl-6 text-gray-700">
+                        <p><strong>用法用量:</strong> {{ med.dosage }} / {{ med.frequency }}</p>
+                        {% if med.notes %}<p><strong>备注:</strong> {{ med.notes }}</p>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <footer class="mt-16 border-t pt-6 text-right">
+            <p class="text-lg"><strong>主治医师:</strong> {{ prescription.doctor.username }}</p>
+        </footer>
+    </div>
+    <div class="mt-8 no-print">
+        <button onclick="window.print()" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">
+            打印
+        </button>
+    </div>
+</body>
+</html>

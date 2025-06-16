@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}我的健康档案{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    {% if patient %}
+    <!-- 顶栏 -->
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">我的健康档案</h1>
+        <a href="{{ url_for('export_my_record_csv') }}" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition">
+            <i class="fas fa-file-csv mr-2"></i>下载我的病历
+        </a>
+    </div>
+
+    <!-- 病历信息 -->
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">基本信息</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <p><strong>姓名:</strong> {{ patient.name }}</p>
+            <p><strong>主治医生:</strong> {{ patient.doctor.username }}</p>
+            <p><strong>性别:</strong> {{ patient.gender or '未记录' }}</p>
+            <p><strong>出生日期:</strong> {{ patient.dob or '未记录' }}</p>
+        </div>
+        <h2 class="text-xl font-semibold text-gray-700 mt-6 mb-4 border-b pb-2">诊疗记录</h2>
+        <div class="space-y-3 text-sm">
+            <div><strong>主诉:</strong><p class="text-gray-600 whitespace-pre-wrap">{{ patient.chief_complaint or '无' }}</p></div>
+            <div><strong>现病史:</strong><p class="text-gray-600 whitespace-pre-wrap">{{ patient.present_illness or '无' }}</p></div>
+            <div><strong>治疗计划:</strong><p class="text-gray-600 whitespace-pre-wrap">{{ patient.treatment_plan or '无' }}</p></div>
+        </div>
+    </div>
+
+    <!-- X光片 -->
+    <div class="bg-white p-6 rounded-lg shadow-md" x-data="{ showXrayModal: false, selectedXraySrc: '' }">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">我的X光片</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <!-- 【修复】直接遍历从后端传来的已排序列表 xrays -->
+            {% for xray in xrays %}
+                <div class="text-center">
+                    <img @click="showXrayModal = true; selectedXraySrc = '{{ url_for('serve_uploaded_file', filename=xray.filename) }}'" src="{{ url_for('serve_uploaded_file', filename=xray.filename) }}" alt="X光片" class="rounded-lg shadow-sm cursor-pointer hover:opacity-75 transition">
+                    <p class="text-xs text-gray-500 mt-1">{{ xray.upload_date }}</p>
+                </div>
+            {% else %}
+                <p class="col-span-full text-gray-500">您还没有上传过X光片。</p>
+            {% endfor %}
+        </div>
+        <p class="text-xs text-yellow-600 mt-4">* 为避免误读，此处不显示AI标注结果，仅供您查看原始影像。</p>
+        
+        <!-- 大图查看弹窗 -->
+        <div x-show="showXrayModal" @keydown.escape.window="showXrayModal = false" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" x-cloak>
+            <div @click.away="showXrayModal = false" class="relative">
+                <img :src="selectedXraySrc" class="max-w-[90vw] max-h-[85vh] rounded-lg">
+                <button @click="showXrayModal=false" class="absolute -top-3 -right-3 bg-white rounded-full h-8 w-8 text-black text-2xl leading-none">&times;</button>
+            </div>
+        </div>
+    </div>
+
+     <!-- 处方 -->
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">我的处方</h2>
+        <!-- 【修复】直接遍历从后端传来的已排序列表 prescriptions -->
+        {% for prescription in prescriptions %}
+            <div class="border-b py-2">
+                <p><strong>开具日期: {{ prescription.date_issued.strftime('%Y-%m-%d') }}</strong> 
+                <a href="{{ url_for('print_prescription', prescription_id=prescription.id) }}" target="_blank" class="text-blue-500 text-sm ml-4 hover:underline">打印</a></p>
+                <ul class="list-disc pl-5 mt-1 text-sm">
+                {% for med in prescription.medications %}
+                    <li>{{ med.name }} - {{ med.dosage }} - {{ med.frequency }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+        {% else %}
+             <p class="text-gray-500 text-sm">暂无处方记录。</p>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <p class="text-gray-600">系统中没有找到您的病历档案，可能正在由医生创建中。</p>
+    {% endif %}
+</div>
+{% endblock %}

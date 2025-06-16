@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}管理员面板{% endblock %}
+
+{% block content %}
+<div x-data="{ 
+        activeTab: new URLSearchParams(window.location.search).get('activeTab') || 'users',
+        showDeleteModal: false,
+        deleteUrl: '',
+        deleteMessage: '',
+        prepareDelete(event, message) {
+            event.preventDefault();
+            this.deleteMessage = message;
+            this.deleteUrl = event.currentTarget.action;
+            this.showDeleteModal = true;
+        }
+     }"
+     @keydown.escape.window="showDeleteModal = false">
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <a href="#" @click.prevent="activeTab = 'users'; window.history.replaceState(null, null, '?activeTab=users');" :class="{'border-indigo-500 text-indigo-600': activeTab === 'users', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'users'}" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                用户管理
+            </a>
+            <a href="#" @click.prevent="activeTab = 'patients'; window.history.replaceState(null, null, '?activeTab=patients');" :class="{'border-indigo-500 text-indigo-600': activeTab === 'patients', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'patients'}" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                病历管理
+            </a>
+        </nav>
+    </div>
+
+    <!-- 用户管理 -->
+    <div x-show="activeTab === 'users'" x-cloak class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4">所有用户账户</h2>
+        <form method="GET" action="{{ url_for('admin_dashboard') }}" class="mb-4 flex gap-2">
+            <input type="hidden" name="activeTab" value="users">
+            <input type="search" name="search_user" placeholder="按用户名搜索..." value="{{ search_user_query or '' }}" class="flex-grow p-2 border border-gray-300 rounded-md">
+            <button type="submit" class="bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-800">搜索</button>
+        </form>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户名</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">角色</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for user in users %}
+                    <tr x-data="{ editMode: false }">
+                        <td class="px-6 py-4 whitespace-nowrap">{{ user.username }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap capitalize">{{ user.role }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {% if user.username != session.user.username %}
+                            <button @click="editMode = !editMode" class="text-indigo-600 hover:text-indigo-900">编辑</button>
+                            <form action="{{ url_for('admin_delete_user') }}" method="POST" @submit="prepareDelete($event, '确定要删除用户 {{ user.username }} 吗？此操作将一并删除其所有关联数据（病历、预约等），且不可撤销！')" class="inline-block ml-4">
+                                <input type="hidden" name="username" value="{{ user.username }}">
+                                <button type="submit" class="text-red-600 hover:text-red-900">删除</button>
+                            </form>
+                            {% else %}
+                            <span class="text-gray-400">（当前用户）</span>
+                            {% endif %}
+                            <div x-show="editMode" x-cloak x-transition class="mt-4 p-4 border rounded-lg bg-gray-50">
+                                <h4 class="font-bold mb-2">编辑 {{ user.username }}</h4>
+                                <form action="{{ url_for('admin_update_user') }}" method="POST" class="space-y-2">
+                                    <input type="hidden" name="username" value="{{ user.username }}">
+                                    <div>
+                                        <label class="block text-sm">新密码 (留空则不修改)</label>
+                                        <input type="password" name="new_password" class="w-full p-1 border rounded">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm">新角色</label>
+                                        <select name="new_role" class="w-full p-1 border rounded bg-white">
+                                            <option value="patient" {% if user.role == 'patient' %}selected{% endif %}>患者</option>
+                                            <option value="doctor" {% if user.role == 'doctor' %}selected{% endif %}>医生</option>
+                                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>管理员</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button type="submit" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">保存</button>
+                                        <button type="button" @click="editMode = false" class="bg-gray-300 px-3 py-1 rounded hover:bg-gray-400">取消</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 病历管理 -->
+    <div x-show="activeTab === 'patients'" x-cloak class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4">所有患者档案</h2>
+        <form method="GET" action="{{ url_for('admin_dashboard') }}" class="mb-4 flex gap-2">
+             <input type="hidden" name="activeTab" value="patients">
+            <input type="search" name="search_patient" placeholder="按姓名或联系方式搜索..." value="{{ search_patient_query or '' }}" class="flex-grow p-2 border border-gray-300 rounded-md">
+            <button type="submit" class="bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-800">搜索</button>
+        </form>
+         <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">关联医生</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                </thead>
+                {% for patient in patients %}
+                <tbody x-data="{ detailsVisible: false }" class="divide-y divide-gray-200">
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ patient.id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ patient.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ patient.doctor.username }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-4">
+                            <button @click="detailsVisible = !detailsVisible" class="text-indigo-600 hover:text-indigo-900">查看详情</button>
+                            <a href="{{ url_for('export_patient_csv', patient_id=patient.id) }}" class="text-green-600 hover:text-green-900">导出病历</a>
+                            <form action="{{ url_for('admin_delete_patient') }}" method="POST" class="inline-block" @submit="prepareDelete($event, '确定要删除患者 {{ patient.name }} 的所有档案吗？此操作不可撤销！')">
+                                <input type="hidden" name="patient_id" value="{{ patient.id }}">
+                                <button type="submit" class="text-red-600 hover:text-red-900">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr x-show="detailsVisible" x-cloak x-transition>
+                        <td colspan="4" class="p-4 bg-gray-50">
+                            <h4 class="font-bold mb-2 text-gray-800">病历详情: {{ patient.name }}</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div><strong class="text-gray-600">主诉:</strong> <p class="whitespace-pre-wrap pl-2 text-gray-800">{{ patient.chief_complaint or '无记录' }}</p></div>
+                                <div><strong class="text-gray-600">现病史:</strong> <p class="whitespace-pre-wrap pl-2 text-gray-800">{{ patient.present_illness or '无记录' }}</p></div>
+                                <div><strong class="text-gray-600">既往史:</strong> <p class="whitespace-pre-wrap pl-2 text-gray-800">{{ patient.past_history or '无记录' }}</p></div>
+                                <div><strong class="text-gray-600">检查信息:</strong> <p class="whitespace-pre-wrap pl-2 text-gray-800">{{ patient.examination_info or '无记录' }}</p></div>
+                                <div><strong class="text-gray-600">鉴别诊断:</strong> <p class="whitespace-pre-wrap pl-2 text-gray-800">{{ patient.differential_diagnosis or '无记录' }}</p></div>
+                                <div><strong class="text-gray-600">治疗计划:</strong> <p class="whitespace-pre-wrap pl-2 text-gray-800">{{ patient.treatment_plan or '无记录' }}</p></div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+    
+    <!-- 删除确认弹窗 -->
+    <div x-show="showDeleteModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" x-cloak>
+        <div @click.away="showDeleteModal = false" class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold text-gray-900">确认删除</h3>
+            <p class="mt-2 text-sm text-gray-600" x-text="deleteMessage"></p>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button @click="showDeleteModal = false" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">取消</button>
+                <form :action="deleteUrl" method="POST">
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

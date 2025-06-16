@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}预约管理日历{% endblock %}
+
+{% block content %}
+<div x-data="{ 
+        showModal: false, 
+        selectedAppt: {},
+        isSaving: false,
+        updateStatus(id, newStatus) {
+            this.isSaving = true;
+            // 【修复】将 'update_appointment' 改为 'update_appointment_status'
+            fetch('{{ url_for('update_appointment_status') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'appointment_id': id,
+                    'status': newStatus
+                })
+            })
+            .then(response => {
+                // 检查重定向，如果成功则刷新页面
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                   alert('更新失败，请重试。');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('发生网络错误，请查看控制台。');
+            })
+            .finally(() => {
+                this.isSaving = false;
+                this.showModal = false;
+            });
+        } 
+    }" 
+     @keydown.escape.window="showModal = false"
+     class="space-y-8">
+    <div class="bg-white p-6 rounded-lg shadow">
+        <div class="flex justify-between items-center mb-6">
+            <a href="{{ prev_month_url }}" class="p-2 rounded-md hover:bg-gray-200">&larr; 上个月</a>
+            <h1 class="text-3xl font-bold text-gray-800">{{ year }} 年 {{ month }} 月</h1>
+            <a href="{{ next_month_url }}" class="p-2 rounded-md hover:bg-gray-200">下个月 &rarr;</a>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr>
+                        {% for day_name in ['日', '一', '二', '三', '四', '五', '六'] %}
+                        <th class="py-2 px-2 text-center text-sm font-semibold text-gray-600">周{{ day_name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for week in month_calendar %}
+                    <tr class="divide-x divide-gray-200 h-40">
+                        {% for day in week %}
+                        <td class="p-2 border-t border-gray-200 align-top 
+                                   {% if day.month != month %} bg-gray-50 text-gray-400 
+                                   {% elif day == today %} bg-blue-50 
+                                   {% else %} bg-white {% endif %}">
+                            <div class="text-right">
+                                <span class="font-bold {% if day == today %} text-blue-600 {% endif %}">{{ day.day }}</span>
+                            </div>
+                            <div class="mt-1 space-y-1">
+                                {% if day.month == month %}
+                                {% for appt in appointments_by_day[day.day] %}
+                                <a href="{{ url_for('appointment_detail_doctor_view', appointment_id=appt.id) }}" class="block w-full text-left p-1 rounded text-xs cursor-pointer
+                                    {% if appt.status == '已确认' %} bg-green-100 text-green-800 hover:bg-green-200
+                                    {% elif appt.status == '已取消' %} bg-red-100 text-red-800 hover:bg-red-200
+                                    {% elif appt.status == '已完成' %} bg-gray-200 text-gray-600 hover:bg-gray-300
+                                    {% else %} bg-yellow-100 text-yellow-800 hover:bg-yellow-200 {% endif %}">
+                                    <p><strong>{{ appt.appointment_time.strftime('%H:%M') }}</strong> - {{ appt.patient.name }}</p>
+                                    <p class="truncate">{{ appt.reason or '常规' }}</p>
+                                </a>
+                                {% endfor %}
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
